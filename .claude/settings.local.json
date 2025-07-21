@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(node:*)",
+      "Bash(rm:*)",
+      "Bash(pnpm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(chmod:*)",
+      "Bash(ls:*)",
+      "Bash(../dist/index.js init)",
+      "Bash(npm link:*)",
+      "Bash(turbosync:*)"
+    ],
+    "deny": []
+  }
+}
