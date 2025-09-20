@@ -1,127 +1,140 @@
-import fs from 'fs-extra';
+import * as fs from "fs-extra";
+
 const { existsSync, readFileSync } = fs;
-import { join } from 'path';
-import { execa } from 'execa';
-import type { EnvironmentInfo } from '../types.js';
 
-export async function detectEnvironment(cwd = process.cwd()): Promise<EnvironmentInfo> {
-  const isGitRepo = await checkGitRepository(cwd);
-  const isClean = isGitRepo ? await checkGitStatus(cwd) : true;
-  const workspaceType = detectWorkspaceType(cwd);
-  const packageManager = detectPackageManager(cwd);
-  const workspaces = getWorkspaces(cwd);
+import { execa } from "execa";
+import { join } from "path";
+import type { EnvironmentInfo } from "../types.js";
 
-  return {
-    isGitRepo,
-    isClean,
-    workspaceType,
-    packageManager,
-    rootDir: cwd,
-    workspaces
-  };
+export async function detectEnvironment(
+	cwd = process.cwd(),
+): Promise<EnvironmentInfo> {
+	const isGitRepo = await checkGitRepository(cwd);
+	const isClean = isGitRepo ? await checkGitStatus(cwd) : true;
+	const workspaceType = detectWorkspaceType(cwd);
+	const packageManager = detectPackageManager(cwd);
+	const workspaces = getWorkspaces(cwd);
+
+	return {
+		isGitRepo,
+		isClean,
+		workspaceType,
+		packageManager,
+		rootDir: cwd,
+		workspaces,
+	};
 }
 
 async function checkGitRepository(cwd: string): Promise<boolean> {
-  try {
-    await execa('git', ['rev-parse', '--git-dir'], { cwd });
-    return true;
-  } catch {
-    return false;
-  }
+	try {
+		await execa("git", ["rev-parse", "--git-dir"], { cwd });
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 async function checkGitStatus(cwd: string): Promise<boolean> {
-  try {
-    const { stdout } = await execa('git', ['status', '--porcelain'], { cwd });
-    return stdout.trim() === '';
-  } catch {
-    return false;
-  }
+	try {
+		const { stdout } = await execa("git", ["status", "--porcelain"], { cwd });
+		return stdout.trim() === "";
+	} catch {
+		return false;
+	}
 }
 
-function detectWorkspaceType(cwd: string): 'turborepo' | 'nx' | 'generic' | null {
-  if (existsSync(join(cwd, 'turbo.json'))) {
-    return 'turborepo';
-  }
-  if (existsSync(join(cwd, 'nx.json'))) {
-    return 'nx';
-  }
-  if (existsSync(join(cwd, 'package.json'))) {
-    try {
-      const pkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
-      if (pkg.workspaces) {
-        return 'generic';
-      }
-    } catch {
-      // Ignore parsing errors
-    }
-  }
-  return null;
+function detectWorkspaceType(
+	cwd: string,
+): "turborepo" | "nx" | "generic" | null {
+	if (existsSync(join(cwd, "turbo.json"))) {
+		return "turborepo";
+	}
+	if (existsSync(join(cwd, "nx.json"))) {
+		return "nx";
+	}
+	if (existsSync(join(cwd, "package.json"))) {
+		try {
+			const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"));
+			if (pkg.workspaces) {
+				return "generic";
+			}
+		} catch {
+			// Ignore parsing errors
+		}
+	}
+	return null;
 }
 
-function detectPackageManager(cwd: string): 'npm' | 'yarn' | 'pnpm' {
-  if (existsSync(join(cwd, 'pnpm-lock.yaml'))) {
-    return 'pnpm';
-  }
-  if (existsSync(join(cwd, 'yarn.lock'))) {
-    return 'yarn';
-  }
-  return 'npm';
+function detectPackageManager(cwd: string): "npm" | "yarn" | "pnpm" | "bun" {
+	if (existsSync(join(cwd, "pnpm-lock.yaml"))) {
+		return "pnpm";
+	}
+	if (existsSync(join(cwd, "yarn.lock"))) {
+		return "yarn";
+	}
+	if (existsSync(join(cwd, "bun.lock"))) {
+		return "bun";
+	}
+	return "npm";
 }
 
 function getWorkspaces(cwd: string): string[] {
-  try {
-    const pkg = JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf-8'));
-    if (Array.isArray(pkg.workspaces)) {
-      return pkg.workspaces;
-    }
-    if (pkg.workspaces?.packages) {
-      return pkg.workspaces.packages;
-    }
-  } catch {
-    // Ignore parsing errors
-  }
-  return [];
+	try {
+		const pkg = JSON.parse(readFileSync(join(cwd, "package.json"), "utf-8"));
+		if (Array.isArray(pkg.workspaces)) {
+			return pkg.workspaces;
+		}
+		if (pkg.workspaces?.packages) {
+			return pkg.workspaces.packages;
+		}
+	} catch {
+		// Ignore parsing errors
+	}
+	return [];
 }
 
-export async function validateEnvironment(skipCleanCheck = false): Promise<string[]> {
-  const errors: string[] = [];
-  const env = await detectEnvironment();
+export async function validateEnvironment(
+	skipCleanCheck = false,
+): Promise<string[]> {
+	const errors: string[] = [];
+	const env = await detectEnvironment();
 
-  if (!env.isGitRepo) {
-    errors.push('Current directory is not a git repository');
-  }
+	if (!env.isGitRepo) {
+		errors.push("Current directory is not a git repository");
+	}
 
-  if (!skipCleanCheck && !env.isClean) {
-    errors.push('Git repository has uncommitted changes');
-  }
+	if (!skipCleanCheck && !env.isClean) {
+		errors.push("Git repository has uncommitted changes");
+	}
 
-  if (!env.workspaceType) {
-    errors.push('No supported workspace configuration found (TurboRepo, Nx, or package.json workspaces)');
-  }
+	if (!env.workspaceType) {
+		errors.push(
+			"No supported workspace configuration found (TurboRepo, Nx, or package.json workspaces)",
+		);
+	}
 
-  try {
-    await execa('git', ['--version']);
-  } catch {
-    errors.push('Git is not installed or not accessible');
-  }
+	try {
+		await execa("git", ["--version"]);
+	} catch {
+		errors.push("Git is not installed or not accessible");
+	}
 
-  return errors;
+	return errors;
 }
 
 export async function validateEnvironmentForInit(): Promise<string[]> {
-  const errors: string[] = [];
-  const env = await detectEnvironment();
+	const errors: string[] = [];
+	const env = await detectEnvironment();
 
-  if (!env.isGitRepo) {
-    errors.push('Current directory is not a git repository');
-  }
+	if (!env.isGitRepo) {
+		errors.push("Current directory is not a git repository");
+	}
 
-  try {
-    await execa('git', ['--version']);
-  } catch {
-    errors.push('Git is not installed or not accessible');
-  }
+	try {
+		await execa("git", ["--version"]);
+	} catch {
+		errors.push("Git is not installed or not accessible");
+	}
 
-  return errors;
+	return errors;
 }

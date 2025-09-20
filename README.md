@@ -1,6 +1,6 @@
 # TurboSync
 
-🚀 A CLI tool for integrating external repositories into TurboRepo workspaces using git subtrees and symbolic links, making library source code visible to AI tools while maintaining clean separation and update capabilities.
+🚀 A CLI tool for integrating external repositories into Turborepo workspaces using git subtrees and symbolic links, making library source code visible to AI tools while maintaining clean separation and update capabilities.
 
 ## Features
 
@@ -17,20 +17,20 @@
 # Clone and setup (includes global installation)
 git clone <repository-url>
 cd turbosync
-npm install
-npm run setup
+bun install
+bun run setup
 
 # Or just install globally
-npm run install-global
+bun run install-global
 ```
 
 ### For Production
 ```bash
 # Global installation (when published)
-npm install -g turbosync
+bun install -g turbosync
 
-# Or use with npx
-npx turbosync --help
+# Or use with bunx
+bunx turbosync --help
 ```
 
 ## Quick Start
@@ -141,8 +141,8 @@ TurboSync stores configuration in `.turbosync.json` in your workspace root:
   ],
   "defaultBranch": "main",
   "defaultDirectory": "external",
-  "packageManager": "pnpm",
-  "workspaceType": "turborepo"
+  "packageManager": "bun",
+  "workspaceType": "Turborepo"
 }
 ```
 
@@ -155,15 +155,15 @@ TurboSync stores configuration in `.turbosync.json` in your workspace root:
 
 ## Requirements
 
-- Node.js 18+ (LTS)
+- Bun
 - Git 2.25+
-- TurboRepo, Nx, or package.json workspaces
+- Turborepo, Nx, or package.json workspaces
 - Clean git working directory
 
 ## Supported Environments
 
-- **Workspace Types**: TurboRepo (primary), Nx, Generic monorepos
-- **Package Managers**: pnpm, npm, yarn
+- **Workspace Types**: Turborepo (primary), Nx, Generic monorepos
+- **Package Managers**: bun, bun, yarn
 - **Platforms**: macOS, Linux, Windows
 - **Repositories**: Public and private Git repositories
 
@@ -172,9 +172,9 @@ TurboSync stores configuration in `.turbosync.json` in your workspace root:
 ### Common Issues
 
 **TurboSync command not found or permission denied**
-- Run `npm run build` and `chmod +x dist/index.js`  
-- Or use the setup script: `npm run setup`
-- For global installation: `npm link` (in the project directory)
+- Run `bun run build` and `chmod +x dist/index.js`  
+- Or use the setup script: `bun run setup`
+- For global installation: `bun link` (in the project directory)
 
 **"Repository not accessible"**
 - Check if the repository URL is correct
@@ -193,43 +193,3 @@ TurboSync stores configuration in `.turbosync.json` in your workspace root:
 - Make sure you're in the correct workspace directory
 - Commit any pending changes first
 - The `init` command is more lenient than other commands
-
-### Getting Help
-
-```bash
-# View all commands
-turbosync --help
-
-# View command-specific help
-turbosync add --help
-turbosync update --help
-```
-
-## Development
-
-```bash
-# Clone repository
-git clone https://github.com/your-org/turbosync.git
-cd turbosync
-
-# Install dependencies  
-pnpm install
-
-# Build project
-pnpm build
-
-# Run locally
-node dist/index.js --help
-```
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request

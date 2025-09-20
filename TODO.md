@@ -6,7 +6,7 @@ AI coding tools struggle with unknown libraries because they can't access source
 
 ## Solution Overview
 
-A CLI tool that automatically integrates external repositories into TurboRepo workspaces using git subtrees and symbolic links, making library source code visible to AI tools while maintaining clean separation and update capabilities.
+A CLI tool that automatically integrates external repositories into Turborepo workspaces using git subtrees and symbolic links, making library source code visible to AI tools while maintaining clean separation and update capabilities.
 
 ## Target Users
 
@@ -26,8 +26,8 @@ A CLI tool that automatically integrates external repositories into TurboRepo wo
 ### Must Have
 
 **Environment Detection**
-- Auto-detect TurboRepo/monorepo workspace type
-- Identify package manager (pnpm, npm, yarn)
+- Auto-detect Turborepo/monorepo workspace type
+- Identify package manager (bun, pnpm, npm, yarn)
 - Validate git repository status and cleanliness
 - Check for required system dependencies
 
@@ -84,7 +84,7 @@ A CLI tool that automatically integrates external repositories into TurboRepo wo
 ## Technical Requirements
 
 ### System Requirements
-- Node.js 18+ (LTS)
+- Bun
 - Git 2.25+
 - macOS, Linux, or Windows support
 - TurboRepo or compatible monorepo structure
