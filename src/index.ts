@@ -1,8 +1,5 @@
 #!/usr/bin/env node
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { addCommand } from "./commands/add.js";
 import { initCommand } from "./commands/init.js";
@@ -14,18 +11,12 @@ import { handleError } from "./utils/validation.js";
 
 const program = new Command();
 
-// Read version from package.json
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const packageJsonPath = join(__dirname, "../package.json");
-const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
-
 program
   .name("turbosync")
   .description(
-    "CLI tool for integrating external repositories into TurboRepo workspaces"
+    "CLI tool for integrating external repositories into TurboRepo workspaces",
   )
-  .version(packageJson.version)
+  .version("0.0.1")
   .addHelpText(
     "after",
     `
@@ -36,7 +27,7 @@ Examples:
   $ turbosync list --verbose         # Show detailed info
   $ turbosync update --all           # Update all repositories
   $ turbosync status                 # Check repository health
-`
+`,
   );
 
 program

@@ -14,6 +14,7 @@ export interface Repository {
   subtreePrefix: string;
   lastUpdated: string;
   packageName?: string;
+  subdirectory?: string;
 }
 
 export interface EnvironmentInfo {

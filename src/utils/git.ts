@@ -10,7 +10,23 @@ import {
 export function parseRepositoryUrl(input: string): {
   url: string;
   name: string;
+  subdirectory?: string;
+  branch?: string;
 } {
+  // Check for GitHub URL with subdirectory (e.g., https://github.com/owner/repo/tree/branch/path/to/dir)
+  const githubSubdirRegex =
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)$/;
+  const subdirMatch = input.match(githubSubdirRegex);
+
+  if (subdirMatch) {
+    const [, owner, repo, branch, subdirectory] = subdirMatch;
+    if (owner && repo && branch && subdirectory) {
+      const url = `https://github.com/${owner}/${repo}.git`;
+      const name = subdirectory.split("/").pop() || repo;
+      return { url, name, subdirectory, branch };
+    }
+  }
+
   // First check for GitHub shorthand (owner/repo)
   const githubShorthandRegex = /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.-]+$/;
   if (githubShorthandRegex.test(input)) {
@@ -28,7 +44,7 @@ export function parseRepositoryUrl(input: string): {
     // Only allow HTTPS protocol (block git://, ext::, etc.)
     if (urlObj.protocol !== "https:") {
       throw new Error(
-        "Only HTTPS URLs are allowed for security. Please use an HTTPS URL."
+        "Only HTTPS URLs are allowed for security. Please use an HTTPS URL.",
       );
     }
 
@@ -42,7 +58,7 @@ export function parseRepositoryUrl(input: string): {
     return { url, name };
   } catch (error) {
     throw new Error(
-      `Invalid repository format. Use HTTPS URL or GitHub shorthand (owner/repo). Error: ${error instanceof Error ? error.message : error}`
+      `Invalid repository format. Use HTTPS URL or GitHub shorthand (owner/repo). Error: ${error instanceof Error ? error.message : error}`,
     );
   }
 }
@@ -52,9 +68,14 @@ function extractRepoName(url: string): string {
   return match?.[1] || "unknown";
 }
 
-export async function checkRemoteExists(url: string): Promise<boolean> {
+export async function checkRemoteExists(
+  url: string,
+  subdirectory?: string,
+): Promise<boolean> {
   try {
     await execa("git", ["ls-remote", "--heads", url], { timeout: 10000 });
+    // Note: We can't verify subdirectory existence without cloning,
+    // so we just check if the repo is accessible
     return true;
   } catch {
     return false;
@@ -81,7 +102,8 @@ export async function addSubtree(
   url: string,
   prefix: string,
   branch = "main",
-  cwd = process.cwd()
+  cwd = process.cwd(),
+  subdirectory?: string,
 ): Promise<void> {
   // Validate branch name
   if (!validateBranchName(branch)) {
@@ -96,15 +118,64 @@ export async function addSubtree(
 
   const s = p.spinner();
   try {
-    s.start(`Adding subtree from ${url}`);
+    if (subdirectory) {
+      // For subdirectories, we need to use a different approach:
+      // 1. Clone the repo to a temp location
+      // 2. Copy only the subdirectory
+      // 3. Add it as a subtree
+      s.start(`Adding subtree from ${url} (subdirectory: ${subdirectory})`);
 
-    await execa(
-      "git",
-      ["subtree", "add", "--prefix", prefix, "--squash", url, branch],
-      { cwd, timeout: 60000 } // 60 second timeout
-    );
+      const { mkdtemp, rm } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
 
-    s.stop("Subtree added successfully");
+      const tempDir = await mkdtemp(join(tmpdir(), "turbosync-"));
+
+      try {
+        // Clone with depth 1 for efficiency
+        await execa(
+          "git",
+          ["clone", "--depth", "1", "--branch", branch, url, tempDir],
+          {
+            timeout: 120000,
+          },
+        );
+
+        const subdirPath = join(tempDir, subdirectory);
+
+        // Copy subdirectory contents to the prefix location
+        const { mkdir, cp } = await import("node:fs/promises");
+        await mkdir(prefix, { recursive: true });
+        await cp(subdirPath, prefix, { recursive: true });
+
+        // Add and commit the files
+        await execa("git", ["add", prefix], { cwd, timeout: 30000 });
+        const sanitizedSubdir = sanitizeCommitMessage(subdirectory);
+        await execa(
+          "git",
+          ["commit", "-m", `Add ${sanitizedSubdir} from ${url}`],
+          {
+            cwd,
+            timeout: 30000,
+          },
+        );
+      } finally {
+        // Clean up temp directory
+        await rm(tempDir, { recursive: true, force: true });
+      }
+
+      s.stop("Subtree added successfully");
+    } else {
+      s.start(`Adding subtree from ${url}`);
+
+      await execa(
+        "git",
+        ["subtree", "add", "--prefix", prefix, "--squash", url, branch],
+        { cwd, timeout: 60000 }, // 60 second timeout
+      );
+
+      s.stop("Subtree added successfully");
+    }
   } catch (error) {
     s.stop("Failed to add subtree");
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -116,7 +187,8 @@ export async function updateSubtree(
   url: string,
   prefix: string,
   branch = "main",
-  cwd = process.cwd()
+  cwd = process.cwd(),
+  subdirectory?: string,
 ): Promise<void> {
   // Validate branch name
   if (!validateBranchName(branch)) {
@@ -131,15 +203,59 @@ export async function updateSubtree(
 
   const s = p.spinner();
   try {
-    s.start(`Updating subtree ${prefix}`);
+    if (subdirectory) {
+      s.start(`Updating subtree ${prefix} (subdirectory: ${subdirectory})`);
 
-    await execa(
-      "git",
-      ["subtree", "pull", "--prefix", prefix, "--squash", url, branch],
-      { cwd, timeout: 60000 } // 60 second timeout
-    );
+      const { mkdtemp, rm, cp } = await import("node:fs/promises");
+      const { tmpdir } = await import("node:os");
+      const { join } = await import("node:path");
 
-    s.stop("Subtree updated successfully");
+      const tempDir = await mkdtemp(join(tmpdir(), "turbosync-"));
+
+      try {
+        // Clone with depth 1 for efficiency
+        await execa(
+          "git",
+          ["clone", "--depth", "1", "--branch", branch, url, tempDir],
+          {
+            timeout: 120000,
+          },
+        );
+
+        const subdirPath = join(tempDir, subdirectory);
+
+        // Remove old contents and copy new ones
+        await rm(prefix, { recursive: true, force: true });
+        await cp(subdirPath, prefix, { recursive: true });
+
+        // Add and commit the updates
+        await execa("git", ["add", prefix], { cwd, timeout: 30000 });
+        const sanitizedSubdir = sanitizeCommitMessage(subdirectory);
+        await execa(
+          "git",
+          ["commit", "-m", `Update ${sanitizedSubdir} from ${url}`],
+          {
+            cwd,
+            timeout: 30000,
+          },
+        );
+      } finally {
+        // Clean up temp directory
+        await rm(tempDir, { recursive: true, force: true });
+      }
+
+      s.stop("Subtree updated successfully");
+    } else {
+      s.start(`Updating subtree ${prefix}`);
+
+      await execa(
+        "git",
+        ["subtree", "pull", "--prefix", prefix, "--squash", url, branch],
+        { cwd, timeout: 60000 }, // 60 second timeout
+      );
+
+      s.stop("Subtree updated successfully");
+    }
   } catch (error) {
     s.stop("Failed to update subtree");
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -149,7 +265,7 @@ export async function updateSubtree(
 
 export async function removeSubtree(
   prefix: string,
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<void> {
   // Validate prefix path to prevent path traversal attacks
   const pathValidation = validateSafePath(prefix, cwd);
@@ -167,7 +283,7 @@ export async function removeSubtree(
   const relativePath = relative(cwd, safePath);
   if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
     throw new Error(
-      "Invalid path: attempting to access outside working directory"
+      "Invalid path: attempting to access outside working directory",
     );
   }
 

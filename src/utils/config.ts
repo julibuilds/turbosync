@@ -1,6 +1,5 @@
 import { dirname, join } from "node:path";
 import * as fs from "fs-extra";
-import { tmpName } from "tmp-promise";
 import { TurboSyncConfigSchema } from "../schemas.js";
 import type { Repository, TurboSyncConfig } from "../types.js";
 
@@ -11,7 +10,7 @@ function getConfigPath(cwd = process.cwd()): string {
 }
 
 export async function loadConfig(
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<TurboSyncConfig> {
   const configPath = getConfigPath(cwd);
 
@@ -44,10 +43,10 @@ export async function loadConfig(
 
 export async function saveConfig(
   config: TurboSyncConfig,
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<void> {
   const configPath = getConfigPath(cwd);
-  const tempPath = await tmpName({ dir: dirname(configPath) });
+  const tempPath = `${configPath}.tmp`;
 
   try {
     // Ensure directory exists
@@ -85,12 +84,12 @@ async function createDefaultConfig(cwd: string): Promise<TurboSyncConfig> {
 
 export async function addRepository(
   repo: Repository,
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<void> {
   const config = await loadConfig(cwd);
 
   const existingIndex = config.repositories.findIndex(
-    (r) => r.name === repo.name
+    (r) => r.name === repo.name,
   );
   if (existingIndex >= 0) {
     config.repositories[existingIndex] = repo;
@@ -103,7 +102,7 @@ export async function addRepository(
 
 export async function removeRepository(
   name: string,
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<boolean> {
   const config = await loadConfig(cwd);
   const initialLength = config.repositories.length;
@@ -120,14 +119,14 @@ export async function removeRepository(
 
 export async function getRepository(
   name: string,
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<Repository | undefined> {
   const config = await loadConfig(cwd);
   return config.repositories.find((r) => r.name === name);
 }
 
 export async function getAllRepositories(
-  cwd = process.cwd()
+  cwd = process.cwd(),
 ): Promise<Repository[]> {
   const config = await loadConfig(cwd);
   return config.repositories;

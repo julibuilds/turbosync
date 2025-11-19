@@ -19,7 +19,7 @@ import {
 
 export async function addCommand(
   repository?: string,
-  options: AddOptions = {}
+  options: AddOptions = {},
 ) {
   p.intro(chalk.cyan("🚀 TurboSync Add"));
 
@@ -37,6 +37,8 @@ export async function addCommand(
   try {
     let repoUrl: string;
     let repoName: string;
+    let subdirectory: string | undefined;
+    let parsedBranch: string | undefined;
 
     if (!repository) {
       const repoInput = await p.text({
@@ -61,10 +63,14 @@ export async function addCommand(
       const parsed = parseRepositoryUrl(repoInput);
       repoUrl = parsed.url;
       repoName = parsed.name;
+      subdirectory = parsed.subdirectory;
+      parsedBranch = parsed.branch;
     } else {
       const parsed = parseRepositoryUrl(repository);
       repoUrl = parsed.url;
       repoName = parsed.name;
+      subdirectory = parsed.subdirectory;
+      parsedBranch = parsed.branch;
     }
 
     if (options.dryRun) {
@@ -74,7 +80,7 @@ export async function addCommand(
     const s = p.spinner();
     s.start("Checking repository accessibility...");
 
-    const isAccessible = await checkRemoteExists(repoUrl);
+    const isAccessible = await checkRemoteExists(repoUrl, subdirectory);
     if (!isAccessible) {
       s.stop("Repository check failed");
       p.cancel(chalk.red(`Repository not accessible: ${repoUrl}`));
@@ -83,7 +89,7 @@ export async function addCommand(
 
     s.stop("Repository is accessible");
 
-    let branch = options.branch || config.defaultBranch;
+    let branch = options.branch || parsedBranch || config.defaultBranch;
     if (!options.branch) {
       s.start("Fetching available branches...");
       const branches = await getBranches(repoUrl);
@@ -131,7 +137,13 @@ export async function addCommand(
         {
           title: "Adding git subtree",
           task: async () => {
-            await addSubtree(repoUrl, directory, branch);
+            await addSubtree(
+              repoUrl,
+              directory,
+              branch,
+              process.cwd(),
+              subdirectory,
+            );
             return "Git subtree added";
           },
         },
@@ -155,7 +167,7 @@ export async function addCommand(
           task: async () => {
             await updateWorkspaceConfig(
               packageName,
-              join("packages", repoName)
+              join("packages", repoName),
             );
             return "Workspace updated";
           },
@@ -171,6 +183,7 @@ export async function addCommand(
               subtreePrefix: directory,
               lastUpdated: new Date().toISOString(),
               packageName,
+              subdirectory,
             };
             await addRepository(repo);
             return "Configuration saved";
@@ -191,7 +204,7 @@ export async function addCommand(
     p.outro(
       options.dryRun
         ? chalk.yellow("✓ Dry run completed - no changes made")
-        : chalk.green(`✓ Successfully added ${repoName} to workspace!`)
+        : chalk.green(`✓ Successfully added ${repoName} to workspace!`),
     );
   } catch (error) {
     p.cancel(chalk.red(`Failed to add repository: ${error}`));

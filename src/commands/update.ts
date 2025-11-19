@@ -10,7 +10,7 @@ import { updateSubtree } from "../utils/git.js";
 
 export async function updateCommand(
   name?: string,
-  options: UpdateOptions = {}
+  options: UpdateOptions = {},
 ) {
   p.intro(chalk.cyan("🔄 TurboSync Update"));
 
@@ -47,7 +47,7 @@ export async function updateCommand(
     }
 
     targetRepos = repositories.filter((repo) =>
-      repoChoices.includes(repo.name)
+      repoChoices.includes(repo.name),
     );
   }
 
@@ -69,7 +69,13 @@ export async function updateCommand(
       const s = p.spinner();
       s.start(`Updating ${repo.name}...`);
 
-      await updateSubtree(repo.url, repo.subtreePrefix, repo.branch);
+      await updateSubtree(
+        repo.url,
+        repo.subtreePrefix,
+        repo.branch,
+        process.cwd(),
+        repo.subdirectory,
+      );
 
       repo.lastUpdated = new Date().toISOString();
       await addRepository(repo);
@@ -87,8 +93,8 @@ export async function updateCommand(
   } else {
     p.outro(
       chalk.yellow(
-        `⚠️ Updated ${successCount} repositories, ${failureCount} failed`
-      )
+        `⚠️ Updated ${successCount} repositories, ${failureCount} failed`,
+      ),
     );
   }
 }
