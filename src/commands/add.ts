@@ -115,10 +115,44 @@ export async function addCommand(
       }
     }
 
-    const directory =
-      options.directory || join(config.defaultDirectory, repoName);
+    // Handle target directory selection
+    let targetDirectory = options.target || config.defaultDirectory;
+    const configuredDirectories = config.directories || [
+      config.defaultDirectory,
+    ];
+
+    if (options.target) {
+      // Validate that the specified target exists in configured directories
+      if (!configuredDirectories.includes(options.target)) {
+        p.cancel(
+          chalk.red(
+            `Target directory "${options.target}" is not configured. Available: ${configuredDirectories.join(", ")}`,
+          ),
+        );
+        process.exit(1);
+      }
+    } else if (configuredDirectories.length > 1 && !options.directory) {
+      // If multiple directories configured and no explicit directory override, prompt
+      const dirChoice = await p.select({
+        message: "Select target directory:",
+        options: configuredDirectories.map((d) => ({ value: d, label: d })),
+      });
+
+      if (p.isCancel(dirChoice)) {
+        p.cancel("Operation cancelled");
+        process.exit(0);
+      }
+
+      targetDirectory = dirChoice;
+    }
+
+    const directory = options.directory || join(targetDirectory, repoName);
     const packageName =
       options.name || generatePackageName(repoName, directory);
+
+    // Determine if we should link to packages directory
+    const shouldLink =
+      options.noLink !== true && (config.linkToPackages ?? true);
 
     const existingRepo = config.repositories.find((r) => r.name === repoName);
     if (existingRepo) {
@@ -133,7 +167,10 @@ export async function addCommand(
     }
 
     if (!options.dryRun) {
-      const tasks = p.tasks([
+      const taskList: Array<{
+        title: string;
+        task: () => Promise<string>;
+      }> = [
         {
           title: "Adding git subtree",
           task: async () => {
@@ -154,50 +191,68 @@ export async function addCommand(
             return "Package.json created";
           },
         },
-        {
-          title: "Creating symbolic link",
-          task: async () => {
-            const linkPath = join("packages", repoName);
-            await createSymbolicLink(directory, linkPath);
-            return "Symbolic link created";
-          },
-        },
-        {
-          title: "Updating workspace configuration",
-          task: async () => {
-            await updateWorkspaceConfig(
-              packageName,
-              join("packages", repoName),
-            );
-            return "Workspace updated";
-          },
-        },
-        {
-          title: "Saving configuration",
-          task: async () => {
-            const repo: Repository = {
-              name: repoName,
-              url: repoUrl,
-              branch,
-              directory,
-              subtreePrefix: directory,
-              lastUpdated: new Date().toISOString(),
-              packageName,
-              subdirectory,
-            };
-            await addRepository(repo);
-            return "Configuration saved";
-          },
-        },
-      ]);
+      ];
 
+      if (shouldLink) {
+        taskList.push(
+          {
+            title: "Creating symbolic link",
+            task: async () => {
+              const linkPath = join(
+                config.packagesDirectory || "packages",
+                repoName,
+              );
+              await createSymbolicLink(directory, linkPath);
+              return "Symbolic link created";
+            },
+          },
+          {
+            title: "Updating workspace configuration",
+            task: async () => {
+              await updateWorkspaceConfig(
+                packageName,
+                join(config.packagesDirectory || "packages", repoName),
+              );
+              return "Workspace updated";
+            },
+          },
+        );
+      }
+
+      taskList.push({
+        title: "Saving configuration",
+        task: async () => {
+          const repo: Repository = {
+            name: repoName,
+            url: repoUrl,
+            branch,
+            directory,
+            subtreePrefix: directory,
+            lastUpdated: new Date().toISOString(),
+            packageName,
+            subdirectory,
+            targetDirectory,
+            linkToPackages: shouldLink,
+          };
+          await addRepository(repo);
+          return "Configuration saved";
+        },
+      });
+
+      const tasks = p.tasks(taskList);
       await tasks;
     } else {
       p.log.info("📋 Would perform the following actions:");
       p.log.step(`Add git subtree: ${repoUrl} (${branch}) -> ${directory}`);
       p.log.step(`Create package.json: ${packageName}`);
-      p.log.step(`Create symbolic link: ${directory} -> packages/${repoName}`);
-      p.log.step("Update workspace configuration");
+      if (shouldLink) {
+        p.log.step(
+          `Create symbolic link: ${directory} -> ${config.packagesDirectory || "packages"}/${repoName}`,
+        );
+        p.log.step("Update workspace configuration");
+      } else {
+        p.log.step("Skip symbolic link (--no-link)");
+      }
       p.log.step("Save to .turbosync.json");
     }
 

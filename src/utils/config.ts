@@ -34,7 +34,23 @@ export async function loadConfig(
       ...rawConfig,
     });
 
-    return validatedConfig as TurboSyncConfig;
+    // Migration: ensure directories array exists and includes defaultDirectory
+    const config = validatedConfig as TurboSyncConfig;
+    if (!config.directories || config.directories.length === 0) {
+      config.directories = [config.defaultDirectory];
+    } else if (!config.directories.includes(config.defaultDirectory)) {
+      config.directories.unshift(config.defaultDirectory);
+    }
+
+    // Migration: ensure linkToPackages and packagesDirectory exist
+    if (config.linkToPackages === undefined) {
+      config.linkToPackages = true;
+    }
+    if (!config.packagesDirectory) {
+      config.packagesDirectory = "packages";
+    }
+
+    return config;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Failed to load config file at ${configPath}: ${message}`);
@@ -74,6 +90,9 @@ async function createDefaultConfig(cwd: string): Promise<TurboSyncConfig> {
     repositories: [],
     defaultBranch: "main",
     defaultDirectory: "external",
+    directories: ["external"],
+    linkToPackages: true,
+    packagesDirectory: "packages",
     packageManager: "bun",
     workspaceType: "turborepo",
   };

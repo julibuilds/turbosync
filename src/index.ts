@@ -37,6 +37,11 @@ program
   .option("-b, --branch <branch>", "Specify branch to integrate")
   .option("-d, --directory <dir>", "Target directory name")
   .option("-n, --name <name>", "Package name")
+  .option(
+    "-t, --target <directory>",
+    "Target directory from configured directories",
+  )
+  .option("--no-link", "Skip linking to packages directory")
   .option("--dry-run", "Preview changes without executing")
   .action(async (...args) => {
     try {

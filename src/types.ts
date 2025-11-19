@@ -2,6 +2,9 @@ export interface TurboSyncConfig {
   repositories: Repository[];
   defaultBranch: string;
   defaultDirectory: string;
+  directories?: string[];
+  linkToPackages: boolean;
+  packagesDirectory: string;
   packageManager: "npm" | "yarn" | "pnpm" | "bun";
   workspaceType: "turborepo" | "nx" | "generic";
 }
@@ -15,6 +18,8 @@ export interface Repository {
   lastUpdated: string;
   packageName?: string;
   subdirectory?: string;
+  targetDirectory?: string;
+  linkToPackages?: boolean;
 }
 
 export interface EnvironmentInfo {
@@ -31,6 +36,8 @@ export interface AddOptions {
   directory?: string;
   name?: string;
   dryRun?: boolean;
+  target?: string;
+  noLink?: boolean;
 }
 
 export interface ListOptions {

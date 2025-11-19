@@ -9,6 +9,7 @@ import type { RemoveOptions } from "../types.js";
 import {
   getAllRepositories,
   getRepository,
+  loadConfig,
   removeRepository as removeRepoFromConfig,
 } from "../utils/config.js";
 import { removeSubtree } from "../utils/git.js";
@@ -16,7 +17,7 @@ import { removeFromWorkspaceConfig } from "../utils/workspace.js";
 
 export async function removeCommand(
   name?: string,
-  options: RemoveOptions = {}
+  options: RemoveOptions = {},
 ) {
   p.intro(chalk.cyan("🗑️ TurboSync Remove"));
 
@@ -65,7 +66,15 @@ export async function removeCommand(
   }
 
   try {
-    const tasks = p.tasks([
+    const config = await loadConfig();
+    const shouldRemoveLink =
+      repo.linkToPackages ?? config.linkToPackages ?? true;
+    const packagesDir = config.packagesDirectory || "packages";
+
+    const taskList: Array<{
+      title: string;
+      task: () => Promise<string>;
+    }> = [
       {
         title: "Removing git subtree",
         task: async () => {
@@ -73,35 +82,42 @@ export async function removeCommand(
           return "Git subtree removed";
         },
       },
-      {
-        title: "Removing symbolic link",
-        task: async () => {
-          const linkPath = join("packages", repo.name);
-          try {
-            unlinkSync(linkPath);
-          } catch (_error) {
-            // Link might not exist, continue
-          }
-          return "Symbolic link removed";
-        },
-      },
-      {
-        title: "Updating workspace configuration",
-        task: async () => {
-          const linkPath = join("packages", repo.name);
-          await removeFromWorkspaceConfig(linkPath);
-          return "Workspace updated";
-        },
-      },
-      {
-        title: "Removing from configuration",
-        task: async () => {
-          await removeRepoFromConfig(repo.name);
-          return "Configuration updated";
-        },
-      },
-    ]);
+    ];
 
+    if (shouldRemoveLink) {
+      taskList.push(
+        {
+          title: "Removing symbolic link",
+          task: async () => {
+            const linkPath = join(packagesDir, repo.name);
+            try {
+              unlinkSync(linkPath);
+            } catch (_error) {
+              // Link might not exist, continue
+            }
+            return "Symbolic link removed";
+          },
+        },
+        {
+          title: "Updating workspace configuration",
+          task: async () => {
+            const linkPath = join(packagesDir, repo.name);
+            await removeFromWorkspaceConfig(linkPath);
+            return "Workspace updated";
+          },
+        },
+      );
+    }
+
+    taskList.push({
+      title: "Removing from configuration",
+      task: async () => {
+        await removeRepoFromConfig(repo.name);
+        return "Configuration updated";
+      },
+    });
+
+    const tasks = p.tasks(taskList);
     await tasks;
 
     p.outro(chalk.green(`✓ Successfully removed ${repo.name} from workspace`));

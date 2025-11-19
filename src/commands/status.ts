@@ -5,7 +5,7 @@ import * as fs from "fs-extra";
 const { existsSync } = fs;
 
 import { join } from "node:path";
-import { getAllRepositories } from "../utils/config.js";
+import { getAllRepositories, loadConfig } from "../utils/config.js";
 import { checkRemoteExists } from "../utils/git.js";
 
 export async function statusCommand() {
@@ -18,6 +18,9 @@ export async function statusCommand() {
     p.outro('Use "turbosync add" to integrate repositories');
     return;
   }
+
+  const config = await loadConfig();
+  const packagesDir = config.packagesDirectory || "packages";
 
   p.log.info(`Checking ${repositories.length} repositories...`);
 
@@ -32,10 +35,14 @@ export async function statusCommand() {
       issues.push("Directory missing");
     }
 
-    const linkPath = join(process.cwd(), "packages", repo.name);
-    const linkExists = existsSync(linkPath);
-    if (!linkExists) {
-      issues.push("Symbolic link missing");
+    // Only check symlink if repository is configured to be linked
+    const shouldBeLinked = repo.linkToPackages ?? config.linkToPackages ?? true;
+    if (shouldBeLinked) {
+      const linkPath = join(process.cwd(), packagesDir, repo.name);
+      const linkExists = existsSync(linkPath);
+      if (!linkExists) {
+        issues.push("Symbolic link missing");
+      }
     }
 
     let remoteAccessible = false;
@@ -50,13 +57,13 @@ export async function statusCommand() {
 
     const lastUpdated = new Date(repo.lastUpdated);
     const daysSinceUpdate = Math.floor(
-      (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24)
+      (Date.now() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     if (issues.length === 0) {
       healthyCount++;
       p.log.success(
-        `✓ ${repo.name} - healthy (updated ${daysSinceUpdate} days ago)`
+        `✓ ${repo.name} - healthy (updated ${daysSinceUpdate} days ago)`,
       );
     } else {
       issueCount++;
@@ -72,13 +79,13 @@ export async function statusCommand() {
     p.log.warn("\nTo fix issues:");
     p.log.step("turbosync update - Update repositories");
     p.log.step(
-      "turbosync remove <name> && turbosync add <repo> - Reinstall problematic repos"
+      "turbosync remove <name> && turbosync add <repo> - Reinstall problematic repos",
     );
   }
 
   p.outro(
     issueCount === 0
       ? chalk.green("✓ All repositories are healthy")
-      : chalk.yellow(`⚠️ ${issueCount} repositories have issues`)
+      : chalk.yellow(`⚠️ ${issueCount} repositories have issues`),
   );
 }

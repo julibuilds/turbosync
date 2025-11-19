@@ -9,6 +9,9 @@ export const RepositorySchema = z.object({
   subtreePrefix: z.string().min(1).max(255),
   lastUpdated: z.string().datetime(),
   packageName: z.string().min(1).max(255).optional(),
+  subdirectory: z.string().min(1).max(255).optional(),
+  targetDirectory: z.string().min(1).max(255).optional(),
+  linkToPackages: z.boolean().optional(),
 });
 
 // TurboSync config schema
@@ -16,6 +19,9 @@ export const TurboSyncConfigSchema = z.object({
   repositories: z.array(RepositorySchema),
   defaultBranch: z.string().min(1).max(255),
   defaultDirectory: z.string().min(1).max(255),
+  directories: z.array(z.string().min(1).max(255)).optional(),
+  linkToPackages: z.boolean().default(true),
+  packagesDirectory: z.string().min(1).max(255).default("packages"),
   packageManager: z.enum(["npm", "yarn", "pnpm", "bun"]),
   workspaceType: z.enum(["turborepo", "nx", "generic"]),
 });
