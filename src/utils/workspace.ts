@@ -1,134 +1,163 @@
 import * as fs from "fs-extra";
-
-const { existsSync, readFileSync, writeFileSync, symlinkSync } = fs;
-
 import * as p from "@clack/prompts";
 import { join, relative } from "path";
+import { validateSafePath } from "./validation";
 
 export async function createSymbolicLink(
-	source: string,
-	target: string,
-	cwd = process.cwd(),
+  source: string,
+  target: string,
+  cwd = process.cwd(),
 ): Promise<void> {
-	const sourcePath = join(cwd, source);
-	const targetPath = join(cwd, target);
+  const sourcePath = join(cwd, source);
+  const targetPath = join(cwd, target);
 
-	if (existsSync(targetPath)) {
-		p.log.warn(`Symbolic link target already exists: ${target}`);
-		return;
-	}
+  // Validate paths before operation
+  const sourceValidation = validateSafePath(source, cwd);
+  if (!sourceValidation.isValid) {
+    throw new Error(`Invalid source path: ${sourceValidation.error}`);
+  }
 
-	try {
-		const relativePath = relative(join(targetPath, ".."), sourcePath);
-		symlinkSync(relativePath, targetPath, "dir");
-		p.log.success(`Created symbolic link: ${target} -> ${source}`);
-	} catch (error) {
-		throw new Error(`Failed to create symbolic link: ${error}`);
-	}
+  const targetValidation = validateSafePath(target, cwd);
+  if (!targetValidation.isValid) {
+    throw new Error(`Invalid target path: ${targetValidation.error}`);
+  }
+
+  try {
+    // Check if target exists using async method
+    const targetExists = await fs.pathExists(targetPath);
+    if (targetExists) {
+      p.log.warn(`Symbolic link target already exists: ${target}`);
+      return;
+    }
+
+    // Create symlink atomically
+    const relativePath = relative(join(targetPath, ".."), sourcePath);
+    await fs.symlink(relativePath, targetPath, "dir");
+    p.log.success(`Created symbolic link: ${target} -> ${source}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to create symbolic link: ${message}`);
+  }
 }
 
 export async function updateWorkspaceConfig(
-	packageName: string,
-	directory: string,
-	cwd = process.cwd(),
+  packageName: string,
+  directory: string,
+  cwd = process.cwd(),
 ): Promise<void> {
-	const packageJsonPath = join(cwd, "package.json");
+  const packageJsonPath = join(cwd, "package.json");
 
-	if (!existsSync(packageJsonPath)) {
-		p.log.warn("No package.json found, skipping workspace configuration");
-		return;
-	}
+  try {
+    // Use async pathExists instead of sync existsSync
+    const exists = await fs.pathExists(packageJsonPath);
+    if (!exists) {
+      p.log.warn("No package.json found, skipping workspace configuration");
+      return;
+    }
 
-	try {
-		const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    const pkgContent = await fs.readFile(packageJsonPath, "utf-8");
+    const pkg = JSON.parse(pkgContent);
 
-		if (!pkg.workspaces) {
-			pkg.workspaces = [];
-		}
+    if (!pkg.workspaces) {
+      pkg.workspaces = [];
+    }
 
-		if (Array.isArray(pkg.workspaces)) {
-			if (!pkg.workspaces.includes(directory)) {
-				pkg.workspaces.push(directory);
-			}
-		} else if (pkg.workspaces.packages) {
-			if (!pkg.workspaces.packages.includes(directory)) {
-				pkg.workspaces.packages.push(directory);
-			}
-		}
+    if (Array.isArray(pkg.workspaces)) {
+      if (!pkg.workspaces.includes(directory)) {
+        pkg.workspaces.push(directory);
+      }
+    } else if (pkg.workspaces.packages) {
+      if (!pkg.workspaces.packages.includes(directory)) {
+        pkg.workspaces.packages.push(directory);
+      }
+    }
 
-		writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
-		p.log.success(`Updated workspace configuration for ${packageName}`);
-	} catch (error) {
-		throw new Error(`Failed to update workspace configuration: ${error}`);
-	}
+    await fs.writeFile(packageJsonPath, JSON.stringify(pkg, null, 2), "utf-8");
+    p.log.success(`Updated workspace configuration for ${packageName}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to update workspace configuration: ${message}`);
+  }
 }
 
 export async function removeFromWorkspaceConfig(
-	directory: string,
-	cwd = process.cwd(),
+  directory: string,
+  cwd = process.cwd(),
 ): Promise<void> {
-	const packageJsonPath = join(cwd, "package.json");
+  const packageJsonPath = join(cwd, "package.json");
 
-	if (!existsSync(packageJsonPath)) {
-		return;
-	}
+  try {
+    const exists = await fs.pathExists(packageJsonPath);
+    if (!exists) {
+      return;
+    }
 
-	try {
-		const pkg = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
+    const pkgContent = await fs.readFile(packageJsonPath, "utf-8");
+    const pkg = JSON.parse(pkgContent);
 
-		if (Array.isArray(pkg.workspaces)) {
-			pkg.workspaces = pkg.workspaces.filter((ws: string) => ws !== directory);
-		} else if (pkg.workspaces?.packages) {
-			pkg.workspaces.packages = pkg.workspaces.packages.filter(
-				(ws: string) => ws !== directory,
-			);
-		}
+    if (Array.isArray(pkg.workspaces)) {
+      pkg.workspaces = pkg.workspaces.filter((ws: string) => ws !== directory);
+    } else if (pkg.workspaces?.packages) {
+      pkg.workspaces.packages = pkg.workspaces.packages.filter(
+        (ws: string) => ws !== directory,
+      );
+    }
 
-		writeFileSync(packageJsonPath, JSON.stringify(pkg, null, 2));
-		p.log.success(`Removed ${directory} from workspace configuration`);
-	} catch (error) {
-		throw new Error(`Failed to remove from workspace configuration: ${error}`);
-	}
+    await fs.writeFile(packageJsonPath, JSON.stringify(pkg, null, 2), "utf-8");
+    p.log.success(`Removed ${directory} from workspace configuration`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(
+      `Failed to remove from workspace configuration: ${message}`,
+    );
+  }
 }
 
 export function generatePackageName(
-	repoName: string,
-	directory: string,
+  repoName: string,
+  directory: string,
 ): string {
-	const baseName = repoName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-	return `@external/${baseName}`;
+  const baseName = repoName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  return `@external/${baseName}`;
 }
 
 export async function createPackageJson(
-	directory: string,
-	packageName: string,
-	repoUrl: string,
-	cwd = process.cwd(),
+  directory: string,
+  packageName: string,
+  repoUrl: string,
+  cwd = process.cwd(),
 ): Promise<void> {
-	const packagePath = join(cwd, directory, "package.json");
-	const sourcePath = join(cwd, directory);
+  const packagePath = join(cwd, directory, "package.json");
 
-	if (existsSync(packagePath)) {
-		p.log.info(`Package.json already exists in ${directory}`);
-		return;
-	}
+  try {
+    const exists = await fs.pathExists(packagePath);
+    if (exists) {
+      p.log.info(`Package.json already exists in ${directory}`);
+      return;
+    }
 
-	const packageJson = {
-		name: packageName,
-		version: "1.0.0",
-		description: `External dependency from ${repoUrl}`,
-		main: "index.js",
-		private: true,
-		repository: {
-			type: "git",
-			url: repoUrl,
-		},
-	};
+    const packageJson = {
+      name: packageName,
+      version: "1.0.0",
+      description: `External dependency from ${repoUrl}`,
+      main: "index.js",
+      private: true,
+      repository: {
+        type: "git",
+        url: repoUrl,
+      },
+    };
 
-	try {
-		writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-		p.log.success(`Created package.json for ${packageName}`);
-	} catch (error) {
-		throw new Error(`Failed to create package.json: ${error}`);
-	}
+    // Ensure directory exists before writing
+    await fs.ensureDir(join(cwd, directory));
+    await fs.writeFile(
+      packagePath,
+      JSON.stringify(packageJson, null, 2),
+      "utf-8",
+    );
+    p.log.success(`Created package.json for ${packageName}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`Failed to create package.json: ${message}`);
+  }
 }
