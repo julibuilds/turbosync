@@ -30,6 +30,7 @@
     "commander": "^14.0.2",
     "execa": "^9.6.0",
     "fs-extra": "^11.3.2",
+    "git-url-parse": "^16.1.0",
     "octokit": "^5.0.5",
     "ora": "^9.0.0",
     "simple-git": "^3.30.0",
