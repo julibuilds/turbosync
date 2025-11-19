@@ -116,15 +116,12 @@ export async function addSubtree(
     throw new Error(`Invalid prefix: ${pathValidation.error}`);
   }
 
-  const s = p.spinner();
   try {
     if (subdirectory) {
       // For subdirectories, we need to use a different approach:
       // 1. Clone the repo to a temp location
       // 2. Copy only the subdirectory
       // 3. Add it as a subtree
-      s.start(`Adding subtree from ${url} (subdirectory: ${subdirectory})`);
-
       const { mkdtemp, rm } = await import("node:fs/promises");
       const { tmpdir } = await import("node:os");
       const { join } = await import("node:path");
@@ -132,12 +129,22 @@ export async function addSubtree(
       const tempDir = await mkdtemp(join(tmpdir(), "turbosync-"));
 
       try {
-        // Clone with depth 1 for efficiency
+        // Clone with depth 1 for efficiency (suppress progress output)
         await execa(
           "git",
-          ["clone", "--depth", "1", "--branch", branch, url, tempDir],
+          [
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            branch,
+            "--quiet",
+            url,
+            tempDir,
+          ],
           {
             timeout: 120000,
+            stderr: "pipe",
           },
         );
 
@@ -151,33 +158,54 @@ export async function addSubtree(
         // Add and commit the files
         await execa("git", ["add", prefix], { cwd, timeout: 30000 });
         const sanitizedSubdir = sanitizeCommitMessage(subdirectory);
-        await execa(
-          "git",
-          ["commit", "-m", `Add ${sanitizedSubdir} from ${url}`],
-          {
-            cwd,
-            timeout: 30000,
-          },
-        );
+
+        // Check if there are any changes staged for this prefix
+        try {
+          const { stdout: diffOutput } = await execa(
+            "git",
+            ["diff", "--cached", "--name-only"],
+            { cwd, timeout: 5000 },
+          );
+
+          if (diffOutput.trim().length > 0) {
+            // There are staged changes, commit them
+            await execa(
+              "git",
+              ["commit", "-m", `Add ${sanitizedSubdir} from ${url}`],
+              {
+                cwd,
+                timeout: 30000,
+              },
+            );
+          }
+          // If no staged changes, that's fine - nothing new to add
+        } catch (commitError) {
+          // If commit fails for reasons other than "nothing to commit", throw
+          const errorMsg =
+            commitError instanceof Error
+              ? commitError.message
+              : String(commitError);
+          if (
+            !errorMsg.includes("nothing to commit") &&
+            !errorMsg.includes("working tree clean") &&
+            !errorMsg.includes("no changes added to commit")
+          ) {
+            throw commitError;
+          }
+          // Otherwise, silently succeed - no changes is not an error
+        }
       } finally {
         // Clean up temp directory
         await rm(tempDir, { recursive: true, force: true });
       }
-
-      s.stop("Subtree added successfully");
     } else {
-      s.start(`Adding subtree from ${url}`);
-
       await execa(
         "git",
         ["subtree", "add", "--prefix", prefix, "--squash", url, branch],
         { cwd, timeout: 60000 }, // 60 second timeout
       );
-
-      s.stop("Subtree added successfully");
     }
   } catch (error) {
-    s.stop("Failed to add subtree");
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Git subtree add failed: ${message}`);
   }
@@ -201,11 +229,8 @@ export async function updateSubtree(
     throw new Error(`Invalid prefix: ${pathValidation.error}`);
   }
 
-  const s = p.spinner();
   try {
     if (subdirectory) {
-      s.start(`Updating subtree ${prefix} (subdirectory: ${subdirectory})`);
-
       const { mkdtemp, rm, cp } = await import("node:fs/promises");
       const { tmpdir } = await import("node:os");
       const { join } = await import("node:path");
@@ -213,12 +238,22 @@ export async function updateSubtree(
       const tempDir = await mkdtemp(join(tmpdir(), "turbosync-"));
 
       try {
-        // Clone with depth 1 for efficiency
+        // Clone with depth 1 for efficiency (suppress progress output)
         await execa(
           "git",
-          ["clone", "--depth", "1", "--branch", branch, url, tempDir],
+          [
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            branch,
+            "--quiet",
+            url,
+            tempDir,
+          ],
           {
             timeout: 120000,
+            stderr: "pipe",
           },
         );
 
@@ -231,33 +266,54 @@ export async function updateSubtree(
         // Add and commit the updates
         await execa("git", ["add", prefix], { cwd, timeout: 30000 });
         const sanitizedSubdir = sanitizeCommitMessage(subdirectory);
-        await execa(
-          "git",
-          ["commit", "-m", `Update ${sanitizedSubdir} from ${url}`],
-          {
-            cwd,
-            timeout: 30000,
-          },
-        );
+
+        // Check if there are any changes staged for this prefix
+        try {
+          const { stdout: diffOutput } = await execa(
+            "git",
+            ["diff", "--cached", "--name-only"],
+            { cwd, timeout: 5000 },
+          );
+
+          if (diffOutput.trim().length > 0) {
+            // There are staged changes, commit them
+            await execa(
+              "git",
+              ["commit", "-m", `Update ${sanitizedSubdir} from ${url}`],
+              {
+                cwd,
+                timeout: 30000,
+              },
+            );
+          }
+          // If no staged changes, that's fine - the subtree is already up to date
+        } catch (commitError) {
+          // If commit fails for reasons other than "nothing to commit", throw
+          const errorMsg =
+            commitError instanceof Error
+              ? commitError.message
+              : String(commitError);
+          if (
+            !errorMsg.includes("nothing to commit") &&
+            !errorMsg.includes("working tree clean") &&
+            !errorMsg.includes("no changes added to commit")
+          ) {
+            throw commitError;
+          }
+          // Otherwise, silently succeed - no changes is not an error
+        }
       } finally {
         // Clean up temp directory
         await rm(tempDir, { recursive: true, force: true });
       }
-
-      s.stop("Subtree updated successfully");
     } else {
-      s.start(`Updating subtree ${prefix}`);
-
       await execa(
         "git",
         ["subtree", "pull", "--prefix", prefix, "--squash", url, branch],
         { cwd, timeout: 60000 }, // 60 second timeout
       );
-
-      s.stop("Subtree updated successfully");
     }
   } catch (error) {
-    s.stop("Failed to update subtree");
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(`Git subtree pull failed: ${message}`);
   }
