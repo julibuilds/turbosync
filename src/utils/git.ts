@@ -1,10 +1,10 @@
+import { isAbsolute, relative, resolve } from "node:path";
 import * as p from "@clack/prompts";
 import { execa } from "execa";
-import { resolve, relative, isAbsolute } from "path";
 import {
-  validateSafePath,
-  validateBranchName,
   sanitizeCommitMessage,
+  validateBranchName,
+  validateSafePath,
 } from "./validation";
 
 export function parseRepositoryUrl(input: string): {
@@ -28,7 +28,7 @@ export function parseRepositoryUrl(input: string): {
     // Only allow HTTPS protocol (block git://, ext::, etc.)
     if (urlObj.protocol !== "https:") {
       throw new Error(
-        "Only HTTPS URLs are allowed for security. Please use an HTTPS URL.",
+        "Only HTTPS URLs are allowed for security. Please use an HTTPS URL."
       );
     }
 
@@ -42,7 +42,7 @@ export function parseRepositoryUrl(input: string): {
     return { url, name };
   } catch (error) {
     throw new Error(
-      `Invalid repository format. Use HTTPS URL or GitHub shorthand (owner/repo). Error: ${error instanceof Error ? error.message : error}`,
+      `Invalid repository format. Use HTTPS URL or GitHub shorthand (owner/repo). Error: ${error instanceof Error ? error.message : error}`
     );
   }
 }
@@ -67,7 +67,10 @@ export async function getBranches(url: string): Promise<string[]> {
     return stdout
       .split("\n")
       .filter((line) => line.includes("refs/heads/"))
-      .map((line) => line.split("refs/heads/")[1]!)
+      .map((line) => {
+        const branchName = line.split("refs/heads/")[1];
+        return branchName || "";
+      })
       .filter(Boolean);
   } catch {
     return [];
@@ -78,7 +81,7 @@ export async function addSubtree(
   url: string,
   prefix: string,
   branch = "main",
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   // Validate branch name
   if (!validateBranchName(branch)) {
@@ -98,7 +101,7 @@ export async function addSubtree(
     await execa(
       "git",
       ["subtree", "add", "--prefix", prefix, "--squash", url, branch],
-      { cwd, timeout: 60000 }, // 60 second timeout
+      { cwd, timeout: 60000 } // 60 second timeout
     );
 
     s.stop("Subtree added successfully");
@@ -113,7 +116,7 @@ export async function updateSubtree(
   url: string,
   prefix: string,
   branch = "main",
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   // Validate branch name
   if (!validateBranchName(branch)) {
@@ -133,7 +136,7 @@ export async function updateSubtree(
     await execa(
       "git",
       ["subtree", "pull", "--prefix", prefix, "--squash", url, branch],
-      { cwd, timeout: 60000 }, // 60 second timeout
+      { cwd, timeout: 60000 } // 60 second timeout
     );
 
     s.stop("Subtree updated successfully");
@@ -146,7 +149,7 @@ export async function updateSubtree(
 
 export async function removeSubtree(
   prefix: string,
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   // Validate prefix path to prevent path traversal attacks
   const pathValidation = validateSafePath(prefix, cwd);
@@ -155,13 +158,16 @@ export async function removeSubtree(
   }
 
   // Use the normalized path
-  const safePath = resolve(cwd, pathValidation.normalizedPath!);
+  if (!pathValidation.normalizedPath) {
+    throw new Error("Path validation did not return a normalized path");
+  }
+  const safePath = resolve(cwd, pathValidation.normalizedPath);
 
   // Verify the path exists within cwd before deletion
   const relativePath = relative(cwd, safePath);
   if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
     throw new Error(
-      "Invalid path: attempting to access outside working directory",
+      "Invalid path: attempting to access outside working directory"
     );
   }
 

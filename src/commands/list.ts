@@ -33,6 +33,6 @@ export async function listCommand(options: ListOptions = {}) {
   }
 
   p.outro(
-    `Total: ${repositories.length} repositories. Use --verbose for detailed information.`,
+    `Total: ${repositories.length} repositories. Use --verbose for detailed information.`
   );
 }

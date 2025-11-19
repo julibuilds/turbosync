@@ -1,12 +1,12 @@
-import * as fs from "fs-extra";
+import { join, relative } from "node:path";
 import * as p from "@clack/prompts";
-import { join, relative } from "path";
+import * as fs from "fs-extra";
 import { validateSafePath } from "./validation";
 
 export async function createSymbolicLink(
   source: string,
   target: string,
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   const sourcePath = join(cwd, source);
   const targetPath = join(cwd, target);
@@ -43,7 +43,7 @@ export async function createSymbolicLink(
 export async function updateWorkspaceConfig(
   packageName: string,
   directory: string,
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   const packageJsonPath = join(cwd, "package.json");
 
@@ -82,7 +82,7 @@ export async function updateWorkspaceConfig(
 
 export async function removeFromWorkspaceConfig(
   directory: string,
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   const packageJsonPath = join(cwd, "package.json");
 
@@ -99,7 +99,7 @@ export async function removeFromWorkspaceConfig(
       pkg.workspaces = pkg.workspaces.filter((ws: string) => ws !== directory);
     } else if (pkg.workspaces?.packages) {
       pkg.workspaces.packages = pkg.workspaces.packages.filter(
-        (ws: string) => ws !== directory,
+        (ws: string) => ws !== directory
       );
     }
 
@@ -108,14 +108,14 @@ export async function removeFromWorkspaceConfig(
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     throw new Error(
-      `Failed to remove from workspace configuration: ${message}`,
+      `Failed to remove from workspace configuration: ${message}`
     );
   }
 }
 
 export function generatePackageName(
   repoName: string,
-  directory: string,
+  _directory: string
 ): string {
   const baseName = repoName.toLowerCase().replace(/[^a-z0-9-]/g, "-");
   return `@external/${baseName}`;
@@ -125,7 +125,7 @@ export async function createPackageJson(
   directory: string,
   packageName: string,
   repoUrl: string,
-  cwd = process.cwd(),
+  cwd = process.cwd()
 ): Promise<void> {
   const packagePath = join(cwd, directory, "package.json");
 
@@ -153,7 +153,7 @@ export async function createPackageJson(
     await fs.writeFile(
       packagePath,
       JSON.stringify(packageJson, null, 2),
-      "utf-8",
+      "utf-8"
     );
     p.log.success(`Created package.json for ${packageName}`);
   } catch (error) {

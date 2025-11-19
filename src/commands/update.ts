@@ -6,11 +6,11 @@ import {
   getAllRepositories,
   getRepository,
 } from "../utils/config.js";
-import { getBranches, updateSubtree } from "../utils/git.js";
+import { updateSubtree } from "../utils/git.js";
 
 export async function updateCommand(
   name?: string,
-  options: UpdateOptions = {},
+  options: UpdateOptions = {}
 ) {
   p.intro(chalk.cyan("🔄 TurboSync Update"));
 
@@ -47,7 +47,7 @@ export async function updateCommand(
     }
 
     targetRepos = repositories.filter((repo) =>
-      repoChoices.includes(repo.name),
+      repoChoices.includes(repo.name)
     );
   }
 
@@ -87,8 +87,8 @@ export async function updateCommand(
   } else {
     p.outro(
       chalk.yellow(
-        `⚠️ Updated ${successCount} repositories, ${failureCount} failed`,
-      ),
+        `⚠️ Updated ${successCount} repositories, ${failureCount} failed`
+      )
     );
   }
 }

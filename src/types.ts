@@ -1,46 +1,46 @@
 export interface TurboSyncConfig {
-	repositories: Repository[];
-	defaultBranch: string;
-	defaultDirectory: string;
-	packageManager: "npm" | "yarn" | "pnpm" | "bun";
-	workspaceType: "turborepo" | "nx" | "generic";
+  repositories: Repository[];
+  defaultBranch: string;
+  defaultDirectory: string;
+  packageManager: "npm" | "yarn" | "pnpm" | "bun";
+  workspaceType: "turborepo" | "nx" | "generic";
 }
 
 export interface Repository {
-	name: string;
-	url: string;
-	branch: string;
-	directory: string;
-	subtreePrefix: string;
-	lastUpdated: string;
-	packageName?: string;
+  name: string;
+  url: string;
+  branch: string;
+  directory: string;
+  subtreePrefix: string;
+  lastUpdated: string;
+  packageName?: string;
 }
 
 export interface EnvironmentInfo {
-	isGitRepo: boolean;
-	isClean: boolean;
-	workspaceType: "turborepo" | "nx" | "generic" | null;
-	packageManager: "npm" | "yarn" | "pnpm" | "bun";
-	rootDir: string;
-	workspaces: string[];
+  isGitRepo: boolean;
+  isClean: boolean;
+  workspaceType: "turborepo" | "nx" | "generic" | null;
+  packageManager: "npm" | "yarn" | "pnpm" | "bun";
+  rootDir: string;
+  workspaces: string[];
 }
 
 export interface AddOptions {
-	branch?: string;
-	directory?: string;
-	name?: string;
-	dryRun?: boolean;
+  branch?: string;
+  directory?: string;
+  name?: string;
+  dryRun?: boolean;
 }
 
 export interface ListOptions {
-	verbose?: boolean;
+  verbose?: boolean;
 }
 
 export interface RemoveOptions {
-	force?: boolean;
+  force?: boolean;
 }
 
 export interface UpdateOptions {
-	all?: boolean;
-	dryRun?: boolean;
+  all?: boolean;
+  dryRun?: boolean;
 }

@@ -44,7 +44,7 @@ export async function initCommand() {
 
   p.log.info("Environment detected:");
   p.log.step(
-    `Workspace type: ${env.workspaceType || "none (will use generic)"}`,
+    `Workspace type: ${env.workspaceType || "none (will use generic)"}`
   );
   p.log.step(`Package manager: ${env.packageManager}`);
   p.log.step(`Git repository: ${env.isGitRepo ? "yes" : "no"}`);
@@ -53,7 +53,7 @@ export async function initCommand() {
   const existingConfig = await loadConfig();
   if (existingConfig.repositories.length > 0) {
     p.log.info(
-      `Found existing configuration with ${existingConfig.repositories.length} repositories`,
+      `Found existing configuration with ${existingConfig.repositories.length} repositories`
     );
   }
 
@@ -86,7 +86,7 @@ export async function initCommand() {
         p.cancel("Operation cancelled");
         process.exit(0);
       },
-    },
+    }
   );
 
   if (!group.confirm) {

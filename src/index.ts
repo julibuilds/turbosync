@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 
-import * as p from "@clack/prompts";
-import chalk from "chalk";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { Command } from "commander";
-import { readFileSync } from "fs";
-import { join, dirname } from "path";
-import { fileURLToPath } from "url";
 import { addCommand } from "./commands/add.js";
 import { initCommand } from "./commands/init.js";
 import { listCommand } from "./commands/list.js";
@@ -25,7 +23,7 @@ const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf-8"));
 program
   .name("turbosync")
   .description(
-    "CLI tool for integrating external repositories into TurboRepo workspaces",
+    "CLI tool for integrating external repositories into TurboRepo workspaces"
   )
   .version(packageJson.version)
   .addHelpText(
@@ -38,7 +36,7 @@ Examples:
   $ turbosync list --verbose         # Show detailed info
   $ turbosync update --all           # Update all repositories
   $ turbosync status                 # Check repository health
-`,
+`
   );
 
 program

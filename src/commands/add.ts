@@ -1,6 +1,6 @@
+import { join } from "node:path";
 import * as p from "@clack/prompts";
 import chalk from "chalk";
-import { join } from "path";
 import type { AddOptions, Repository } from "../types.js";
 import { addRepository, loadConfig } from "../utils/config.js";
 import { validateEnvironment } from "../utils/environment.js";
@@ -11,12 +11,6 @@ import {
   parseRepositoryUrl,
 } from "../utils/git.js";
 import {
-  handleError,
-  isValidDirectoryName,
-  isValidPackageName,
-  sanitizeDirectoryName,
-} from "../utils/validation.js";
-import {
   createPackageJson,
   createSymbolicLink,
   generatePackageName,
@@ -25,7 +19,7 @@ import {
 
 export async function addCommand(
   repository?: string,
-  options: AddOptions = {},
+  options: AddOptions = {}
 ) {
   p.intro(chalk.cyan("🚀 TurboSync Add"));
 
@@ -108,7 +102,10 @@ export async function addCommand(
 
         branch = branchChoice;
       } else if (branches.length === 1) {
-        branch = branches[0]!;
+        const firstBranch = branches[0];
+        if (firstBranch) {
+          branch = firstBranch;
+        }
       }
     }
 
@@ -158,7 +155,7 @@ export async function addCommand(
           task: async () => {
             await updateWorkspaceConfig(
               packageName,
-              join("packages", repoName),
+              join("packages", repoName)
             );
             return "Workspace updated";
           },
@@ -194,7 +191,7 @@ export async function addCommand(
     p.outro(
       options.dryRun
         ? chalk.yellow("✓ Dry run completed - no changes made")
-        : chalk.green(`✓ Successfully added ${repoName} to workspace!`),
+        : chalk.green(`✓ Successfully added ${repoName} to workspace!`)
     );
   } catch (error) {
     p.cancel(chalk.red(`Failed to add repository: ${error}`));

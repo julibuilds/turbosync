@@ -1,4 +1,4 @@
-import { resolve, relative, isAbsolute } from "path";
+import { isAbsolute, relative, resolve } from "node:path";
 
 /**
  * Validates that a user-provided path is safe and doesn't attempt path traversal
@@ -8,7 +8,7 @@ import { resolve, relative, isAbsolute } from "path";
  */
 export function validateSafePath(
   userPath: string,
-  basePath: string = process.cwd(),
+  basePath: string = process.cwd()
 ): { isValid: boolean; error?: string; normalizedPath?: string } {
   // Reject empty paths
   if (!userPath || userPath.trim().length === 0) {
@@ -76,6 +76,7 @@ export function validateBranchName(branch: string): boolean {
     /\.\./, // No consecutive dots
     /^\/|\/$/, // No leading/trailing slashes
     /\/\//, // No consecutive slashes
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally checking for control characters for security
     /[\x00-\x1f\x7f]/, // No control characters
     /[~^:?*[\\]/, // No special git characters
     /@\{/, // No @{
@@ -99,6 +100,7 @@ export function sanitizeCommitMessage(message: string): string {
   }
 
   // Remove control characters and newlines
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally checking for control characters for security
   let sanitized = message.replace(/[\x00-\x1f\x7f]/g, " ");
 
   // Remove consecutive spaces
@@ -106,7 +108,7 @@ export function sanitizeCommitMessage(message: string): string {
 
   // Limit length
   if (sanitized.length > 500) {
-    sanitized = sanitized.substring(0, 497) + "...";
+    sanitized = `${sanitized.substring(0, 497)}...`;
   }
 
   return sanitized;
@@ -118,10 +120,7 @@ export function sanitizeCommitMessage(message: string): string {
  * @param maxLength - Maximum allowed length (default 1000)
  * @returns true if valid
  */
-export function validateInputLength(
-  input: string,
-  maxLength = 1000,
-): boolean {
+export function validateInputLength(input: string, maxLength = 1000): boolean {
   return input.length > 0 && input.length <= maxLength;
 }
 
@@ -136,6 +135,7 @@ export function isValidDirectoryName(name: string): boolean {
   }
 
   // Check for invalid characters
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally checking for control characters for security
   const invalidChars = /[<>:"|?*\x00-\x1f]/;
   if (invalidChars.test(name)) {
     return false;

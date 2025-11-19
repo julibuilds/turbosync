@@ -4,7 +4,7 @@ import * as fs from "fs-extra";
 
 const { unlinkSync } = fs;
 
-import { join } from "path";
+import { join } from "node:path";
 import type { RemoveOptions } from "../types.js";
 import {
   getAllRepositories,
@@ -16,7 +16,7 @@ import { removeFromWorkspaceConfig } from "../utils/workspace.js";
 
 export async function removeCommand(
   name?: string,
-  options: RemoveOptions = {},
+  options: RemoveOptions = {}
 ) {
   p.intro(chalk.cyan("🗑️ TurboSync Remove"));
 
@@ -79,7 +79,7 @@ export async function removeCommand(
           const linkPath = join("packages", repo.name);
           try {
             unlinkSync(linkPath);
-          } catch (error) {
+          } catch (_error) {
             // Link might not exist, continue
           }
           return "Symbolic link removed";
