@@ -7,23 +7,52 @@ import {
   validateSafePath,
 } from "./validation";
 
-export function parseRepositoryUrl(input: string): {
+export async function parseRepositoryUrl(input: string): Promise<{
   url: string;
   name: string;
   subdirectory?: string;
   branch?: string;
-} {
-  // Check for GitHub URL with subdirectory (e.g., https://github.com/owner/repo/tree/branch/path/to/dir)
-  const githubSubdirRegex =
-    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)$/;
-  const subdirMatch = input.match(githubSubdirRegex);
+}> {
+  // Check for GitHub URL with tree/ pattern (e.g., https://github.com/owner/repo/tree/branch or .../tree/branch/path)
+  const githubTreeRegex =
+    /^https:\/\/github\.com\/([^/]+)\/([^/]+)\/tree\/(.+)$/;
+  const treeMatch = input.match(githubTreeRegex);
 
-  if (subdirMatch) {
-    const [, owner, repo, branch, subdirectory] = subdirMatch;
-    if (owner && repo && branch && subdirectory) {
+  if (treeMatch) {
+    const [, owner, repo, afterTree] = treeMatch;
+    if (owner && repo && afterTree) {
       const url = `https://github.com/${owner}/${repo}.git`;
-      const name = subdirectory.split("/").pop() || repo;
-      return { url, name, subdirectory, branch };
+
+      // Fetch available branches to properly parse branch vs subdirectory
+      const branches = await getBranches(url);
+
+      // Try to match the longest possible branch name
+      const parts = afterTree.split("/");
+      let matchedBranch: string | undefined;
+      let subdirectory: string | undefined;
+
+      // Try from longest to shortest combination
+      for (let i = parts.length; i > 0; i--) {
+        const potentialBranch = parts.slice(0, i).join("/");
+        if (branches.includes(potentialBranch)) {
+          matchedBranch = potentialBranch;
+          if (i < parts.length) {
+            subdirectory = parts.slice(i).join("/");
+          }
+          break;
+        }
+      }
+
+      if (matchedBranch) {
+        const name = subdirectory
+          ? subdirectory.split("/").pop() || repo
+          : repo;
+        return { url, name, subdirectory, branch: matchedBranch };
+      }
+
+      // If no branch matched, treat entire afterTree as branch name
+      // (it might be a valid branch we just can't access yet)
+      return { url, name: repo, branch: afterTree };
     }
   }
 
@@ -70,7 +99,7 @@ function extractRepoName(url: string): string {
 
 export async function checkRemoteExists(
   url: string,
-  subdirectory?: string,
+  _subdirectory?: string,
 ): Promise<boolean> {
   try {
     await execa("git", ["ls-remote", "--heads", url], { timeout: 10000 });

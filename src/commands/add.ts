@@ -46,12 +46,8 @@ export async function addCommand(
         placeholder: "facebook/react",
         validate: (value) => {
           if (!value) return "Repository is required";
-          try {
-            parseRepositoryUrl(value);
-            return;
-          } catch {
-            return "Invalid repository format";
-          }
+          // Basic validation - full async validation happens after input
+          return;
         },
       });
 
@@ -60,13 +56,13 @@ export async function addCommand(
         process.exit(0);
       }
 
-      const parsed = parseRepositoryUrl(repoInput);
+      const parsed = await parseRepositoryUrl(repoInput);
       repoUrl = parsed.url;
       repoName = parsed.name;
       subdirectory = parsed.subdirectory;
       parsedBranch = parsed.branch;
     } else {
-      const parsed = parseRepositoryUrl(repository);
+      const parsed = await parseRepositoryUrl(repository);
       repoUrl = parsed.url;
       repoName = parsed.name;
       subdirectory = parsed.subdirectory;
